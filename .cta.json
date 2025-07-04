@@ -1,5 +1,5 @@
 {
-  "projectName": "my-app",
+  "projectName": "web editor",
   "mode": "file-router",
   "typescript": true,
   "tailwind": true,
@@ -7,7 +7,5 @@
   "git": true,
   "version": 1,
   "framework": "react-cra",
-  "chosenAddOns": [
-    "shadcn"
-  ]
+  "chosenAddOns": ["shadcn"]
 }

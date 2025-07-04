@@ -15,7 +15,6 @@ import { Separator } from "@/components/ui/separator";
 import { ActivityBar, type ActivityBarItem } from "./activity-bar";
 import { MainSidebar } from "./main-sidebar";
 import { MonacoEditor } from "./monaco-editor";
-import { DraggableTerminal } from "./terminal/draggable-terminal";
 import { AIChat } from "./ai-chat";
 import type {
   FileNode,
@@ -330,28 +329,28 @@ export function CairoIDE() {
     setIsSmartDeployModalOpen(false);
   };
 
-  const handleDeploy = async () => {
-    setIsTerminalVisible(true);
-    addTerminalMessage("Starting deployment...", "info");
+  // const handleDeploy = async () => {
+  //   setIsTerminalVisible(true);
+  //   addTerminalMessage("Starting deployment...", "info");
 
-    // Simulate deployment process
-    setTimeout(() => {
-      addTerminalMessage("🚀 Deploying to Starknet testnet...", "info");
-      setTimeout(() => {
-        addTerminalMessage("✅ Contract deployed successfully!", "success");
-        addTerminalMessage(
-          "📍 Contract address: 0x1234567890abcdef1234567890abcdef12345678",
-          "info"
-        );
-        addTerminalMessage(
-          "🔗 View on Starkscan: https://testnet.starkscan.co/contract/0x1234...",
-          "info"
-        );
-      }, 3000);
-    }, 1000);
-  };
+  //   // Simulate deployment process
+  //   setTimeout(() => {
+  //     addTerminalMessage("🚀 Deploying to Starknet testnet...", "info");
+  //     setTimeout(() => {
+  //       addTerminalMessage("✅ Contract deployed successfully!", "success");
+  //       addTerminalMessage(
+  //         "📍 Contract address: 0x1234567890abcdef1234567890abcdef12345678",
+  //         "info"
+  //       );
+  //       addTerminalMessage(
+  //         "🔗 View on Starkscan: https://testnet.starkscan.co/contract/0x1234...",
+  //         "info"
+  //       );
+  //     }, 3000);
+  //   }, 1000);
+  // };
 
-  const currentTab = tabs.find((tab) => tab.id === activeTab);
+  // const currentTab = tabs.find((tab) => tab.id === activeTab);
 
   return (
     <div className="h-screen flex bg-background">

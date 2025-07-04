@@ -390,7 +390,7 @@ export function DeploymentModal({
               <Progress value={deploymentProgress} className="w-full" />
 
               <div className="space-y-3">
-                {deploymentSteps.map((step, index) => (
+                {deploymentSteps.map((step) => (
                   <div
                     key={step.id}
                     className="flex items-start gap-3 p-3 rounded-lg border"

@@ -1,148 +1,204 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Zap, CheckCircle, AlertCircle, ExternalLink, Copy, RefreshCw, ArrowRight, Settings } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
-import type { FileNode } from "../../types/ide"
-import { DeploymentErrorLogger } from "./deployment-error-logger"
-import type { DeploymentError, DeploymentLog } from "../../types/deployment"
+import { useState, useEffect } from "react";
+import {
+  Zap,
+  CheckCircle,
+  AlertCircle,
+  ExternalLink,
+  Copy,
+  RefreshCw,
+  ArrowRight,
+  Settings,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import type { FileNode } from "../../types/ide";
+import { DeploymentErrorLogger } from "./deployment-error-logger";
+import type { DeploymentError, DeploymentLog } from "../../types/deployment";
 
 interface SmartDeployModalProps {
-  isOpen: boolean
-  onClose: () => void
-  files: FileNode[]
-  onDeploymentComplete: (result: DeploymentResult) => void
+  isOpen: boolean;
+  onClose: () => void;
+  files: FileNode[];
+  onDeploymentComplete: (result: DeploymentResult) => void;
 }
 
 interface DeploymentResult {
-  contractAddress: string
-  transactionHash: string
-  network: string
-  contractName: string
-  classHash: string
+  contractAddress: string;
+  transactionHash: string;
+  network: string;
+  contractName: string;
+  classHash: string;
 }
 
 interface DeploymentStep {
-  id: string
-  title: string
-  description: string
-  status: "pending" | "loading" | "success" | "error" | "warning"
-  details?: string
-  txHash?: string
-  canRetry?: boolean
-  autoRetryCount?: number
+  id: string;
+  title: string;
+  description: string;
+  status: "pending" | "loading" | "success" | "error" | "warning";
+  details?: string;
+  txHash?: string;
+  canRetry?: boolean;
+  autoRetryCount?: number;
 }
 
 interface DetectedContract {
-  name: string
-  path: string
-  hasConstructor: boolean
-  constructorArgs: string[]
-  dependencies: string[]
+  name: string;
+  path: string;
+  hasConstructor: boolean;
+  constructorArgs: string[];
+  dependencies: string[];
 }
 
-export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete }: SmartDeployModalProps) {
-  const [currentStep, setCurrentStep] = useState<"detect" | "confirm" | "deploy" | "success" | "error">("detect")
-  const [detectedContracts, setDetectedContracts] = useState<DetectedContract[]>([])
-  const [selectedContract, setSelectedContract] = useState<DetectedContract | null>(null)
-  const [network, setNetwork] = useState<"sepolia" | "mainnet">("sepolia")
-  const [accountMethod, setAccountMethod] = useState<"auto" | "manual">("auto")
-  const [manualPrivateKey, setManualPrivateKey] = useState("")
-  const [deploymentSteps, setDeploymentSteps] = useState<DeploymentStep[]>([])
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [deploymentProgress, setDeploymentProgress] = useState(0)
-  const [deploymentResult, setDeploymentResult] = useState<DeploymentResult | null>(null)
-  const [errorMessage, setErrorMessage] = useState("")
-  const [deploymentErrors, setDeploymentErrors] = useState<DeploymentError[]>([])
-  const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([])
+export function SmartDeployModal({
+  isOpen,
+  onClose,
+  files,
+  onDeploymentComplete,
+}: SmartDeployModalProps) {
+  const [currentStep, setCurrentStep] = useState<
+    "detect" | "confirm" | "deploy" | "success" | "error"
+  >("detect");
+  const [detectedContracts, setDetectedContracts] = useState<
+    DetectedContract[]
+  >([]);
+  const [selectedContract, setSelectedContract] =
+    useState<DetectedContract | null>(null);
+  const [network, setNetwork] = useState<"sepolia" | "mainnet">("sepolia");
+  const [accountMethod, setAccountMethod] = useState<"auto" | "manual">("auto");
+  const [manualPrivateKey, setManualPrivateKey] = useState("");
+  const [deploymentSteps, setDeploymentSteps] = useState<DeploymentStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [deploymentProgress, setDeploymentProgress] = useState(0);
+  const [deploymentResult, setDeploymentResult] =
+    useState<DeploymentResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [deploymentErrors, setDeploymentErrors] = useState<DeploymentError[]>(
+    []
+  );
+  const [deploymentLogs, setDeploymentLogs] = useState<DeploymentLog[]>([]);
 
   // Auto-detect contracts when modal opens
   useEffect(() => {
     if (isOpen) {
-      detectContracts()
+      detectContracts();
     }
-  }, [isOpen, files])
+  }, [isOpen, files]);
 
   const detectContracts = () => {
     // Simulate contract detection from files
-    const contracts: DetectedContract[] = []
+    const contracts: DetectedContract[] = [];
 
     const findCairoFiles = (nodes: FileNode[]) => {
       nodes.forEach((node) => {
-        if (node.type === "file" && node.name.endsWith(".cairo") && node.content) {
+        if (
+          node.type === "file" &&
+          node.name.endsWith(".cairo") &&
+          node.content
+        ) {
           // Simple contract detection logic
-          if (node.content.includes("#[starknet::contract]") || node.content.includes("@contract")) {
-            const contractName = extractContractName(node.content) || node.name.replace(".cairo", "")
-            const hasConstructor = node.content.includes("constructor") || node.content.includes("#[constructor]")
+          if (
+            node.content.includes("#[starknet::contract]") ||
+            node.content.includes("@contract")
+          ) {
+            const contractName =
+              extractContractName(node.content) ||
+              node.name.replace(".cairo", "");
+            const hasConstructor =
+              node.content.includes("constructor") ||
+              node.content.includes("#[constructor]");
 
             contracts.push({
               name: contractName,
               path: node.path,
               hasConstructor,
-              constructorArgs: hasConstructor ? extractConstructorArgs(node.content) : [],
+              constructorArgs: hasConstructor
+                ? extractConstructorArgs(node.content)
+                : [],
               dependencies: extractDependencies(node.content),
-            })
+            });
           }
         }
         if (node.children) {
-          findCairoFiles(node.children)
+          findCairoFiles(node.children);
         }
-      })
-    }
+      });
+    };
 
-    findCairoFiles(files)
-    setDetectedContracts(contracts)
+    findCairoFiles(files);
+    setDetectedContracts(contracts);
 
     if (contracts.length === 1) {
-      setSelectedContract(contracts[0])
-      setCurrentStep("confirm")
+      setSelectedContract(contracts[0]);
+      setCurrentStep("confirm");
     } else if (contracts.length > 1) {
-      setCurrentStep("confirm")
+      setCurrentStep("confirm");
     } else {
-      setCurrentStep("error")
-      setErrorMessage("No deployable Cairo contracts found. Make sure your contract includes #[starknet::contract].")
+      setCurrentStep("error");
+      setErrorMessage(
+        "No deployable Cairo contracts found. Make sure your contract includes #[starknet::contract]."
+      );
     }
-  }
+  };
 
   const extractContractName = (content: string): string | null => {
-    const match = content.match(/mod\s+(\w+)\s*{/)
-    return match ? match[1] : null
-  }
+    const match = content.match(/mod\s+(\w+)\s*{/);
+    return match ? match[1] : null;
+  };
 
   const extractConstructorArgs = (content: string): string[] => {
     // Simple extraction - in real implementation, this would parse the AST
-    const constructorMatch = content.match(/#\[constructor\]\s*fn\s+constructor\s*$$[^)]*$$/)
+    const constructorMatch = content.match(
+      /#\[constructor\]\s*fn\s+constructor\s*$$[^)]*$$/
+    );
     if (constructorMatch) {
       // Extract parameter names (simplified)
-      return ["owner", "initial_value"] // Mock data
+      return ["owner", "initial_value"]; // Mock data
     }
-    return []
-  }
+    return [];
+  };
 
   const extractDependencies = (content: string): string[] => {
-    const deps = []
-    if (content.includes("starknet")) deps.push("starknet")
-    if (content.includes("openzeppelin")) deps.push("openzeppelin")
-    return deps
-  }
+    const deps = [];
+    if (content.includes("starknet")) deps.push("starknet");
+    if (content.includes("openzeppelin")) deps.push("openzeppelin");
+    return deps;
+  };
 
   const startSmartDeployment = async () => {
-    if (!selectedContract) return
+    if (!selectedContract) return;
 
-    setCurrentStep("deploy")
-    setCurrentStepIndex(0)
-    setDeploymentProgress(0)
+    setCurrentStep("deploy");
+    setCurrentStepIndex(0);
+    setDeploymentProgress(0);
 
     const steps: DeploymentStep[] = [
       {
@@ -154,7 +210,10 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
       {
         id: "account",
         title: "Account Management",
-        description: accountMethod === "auto" ? "Auto-configuring account" : "Verifying provided account",
+        description:
+          accountMethod === "auto"
+            ? "Auto-configuring account"
+            : "Verifying provided account",
         status: "pending",
       },
       {
@@ -181,13 +240,18 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
         description: "Verifying deployment and generating links",
         status: "pending",
       },
-    ]
+    ];
 
-    setDeploymentSteps(steps)
-    await executeDeploymentSteps(steps)
-  }
+    setDeploymentSteps(steps);
+    await executeDeploymentSteps(steps);
+  };
 
-  const addLog = (level: DeploymentLog["level"], step: string, message: string, data?: any) => {
+  const addLog = (
+    level: DeploymentLog["level"],
+    step: string,
+    message: string,
+    data?: any
+  ) => {
     const log: DeploymentLog = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       timestamp: new Date(),
@@ -195,16 +259,16 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
       step,
       message,
       data,
-    }
-    setDeploymentLogs((prev) => [...prev, log])
-  }
+    };
+    setDeploymentLogs((prev) => [...prev, log]);
+  };
 
   const addError = (
     step: string,
     type: DeploymentError["type"],
     message: string,
     details: string,
-    options?: Partial<DeploymentError>,
+    options?: Partial<DeploymentError>
   ) => {
     const error: DeploymentError = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -220,58 +284,59 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
       suggestedFix: options?.suggestedFix,
       relatedLinks: options?.relatedLinks,
       context: options?.context,
-    }
-    setDeploymentErrors((prev) => [...prev, error])
-    addLog("error", step, message, { error })
-  }
+    };
+    setDeploymentErrors((prev) => [...prev, error]);
+    addLog("error", step, message, { error });
+  };
 
   const executeDeploymentSteps = async (steps: DeploymentStep[]) => {
     for (let i = 0; i < steps.length; i++) {
-      setCurrentStepIndex(i)
-      const step = steps[i]
+      setCurrentStepIndex(i);
+      const step = steps[i];
 
       // Update step to loading
-      const updatedSteps = [...steps]
-      updatedSteps[i] = { ...step, status: "loading" }
-      setDeploymentSteps(updatedSteps)
-      setDeploymentProgress((i / steps.length) * 100)
+      const updatedSteps = [...steps];
+      updatedSteps[i] = { ...step, status: "loading" };
+      setDeploymentSteps(updatedSteps);
+      setDeploymentProgress((i / steps.length) * 100);
 
       try {
-        await executeStep(step, i)
+        await executeStep(step, i);
 
         // Update step to success
         updatedSteps[i] = {
           ...step,
           status: "success",
           details: getSuccessMessage(step.id),
-        }
-        setDeploymentSteps(updatedSteps)
+        };
+        setDeploymentSteps(updatedSteps);
       } catch (error) {
         // Handle error with retry option
         updatedSteps[i] = {
           ...step,
           status: "error",
-          details: error instanceof Error ? error.message : "Unknown error occurred",
+          details:
+            error instanceof Error ? error.message : "Unknown error occurred",
           canRetry: true,
           autoRetryCount: 0,
-        }
-        setDeploymentSteps(updatedSteps)
+        };
+        setDeploymentSteps(updatedSteps);
 
         // Auto-retry logic for certain errors
         if (shouldAutoRetry(step.id, error)) {
-          await handleAutoRetry(i, updatedSteps)
+          await handleAutoRetry(i, updatedSteps);
         } else {
           // Stop deployment and show error options
-          setCurrentStep("error")
-          setErrorMessage(`Deployment failed at step: ${step.title}`)
-          return
+          setCurrentStep("error");
+          setErrorMessage(`Deployment failed at step: ${step.title}`);
+          return;
         }
       }
     }
 
     // All steps completed successfully
-    setDeploymentProgress(100)
-    setCurrentStep("success")
+    setDeploymentProgress(100);
+    setCurrentStep("success");
 
     // Generate mock deployment result
     const result: DeploymentResult = {
@@ -280,54 +345,83 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
       network,
       contractName: selectedContract?.name || "Contract",
       classHash: "0x" + Math.random().toString(16).substr(2, 64),
-    }
+    };
 
-    setDeploymentResult(result)
-    onDeploymentComplete(result)
-  }
+    setDeploymentResult(result);
+    onDeploymentComplete(result);
+  };
 
-  const executeStep = async (step: DeploymentStep, index: number): Promise<void> => {
-    addLog("info", step.id, `Starting ${step.title}`)
+  const executeStep = async (
+    step: DeploymentStep,
+    index: number
+  ): Promise<void> => {
+    addLog("info", step.id, `Starting ${step.title}`);
 
     try {
       // Simulate different types of errors with detailed logging
-      const delays = [1000, 1500, 2500, 2000, 3000, 1000]
+      const delays = [1000, 1500, 2500, 2000, 3000, 1000];
 
       // Add step-specific logging
       switch (step.id) {
         case "setup":
-          addLog("debug", step.id, "Initializing deployment environment")
-          addLog("debug", step.id, "Checking system requirements")
-          break
+          addLog("debug", step.id, "Initializing deployment environment");
+          addLog("debug", step.id, "Checking system requirements");
+          break;
         case "account":
-          addLog("debug", step.id, `Configuring account for ${network} network`)
+          addLog(
+            "debug",
+            step.id,
+            `Configuring account for ${network} network`
+          );
           if (accountMethod === "auto") {
-            addLog("info", step.id, "Auto-configuring account with smart defaults")
+            addLog(
+              "info",
+              step.id,
+              "Auto-configuring account with smart defaults"
+            );
           } else {
-            addLog("info", step.id, "Validating provided account credentials")
+            addLog("info", step.id, "Validating provided account credentials");
           }
-          break
+          break;
         case "compile":
-          addLog("debug", step.id, `Compiling contract: ${selectedContract?.name}`)
-          addLog("debug", step.id, "Running Cairo compiler with optimization flags")
-          break
+          addLog(
+            "debug",
+            step.id,
+            `Compiling contract: ${selectedContract?.name}`
+          );
+          addLog(
+            "debug",
+            step.id,
+            "Running Cairo compiler with optimization flags"
+          );
+          break;
         case "declare":
-          addLog("debug", step.id, "Preparing contract declaration transaction")
-          addLog("debug", step.id, "Estimating gas costs for declaration")
-          break
+          addLog(
+            "debug",
+            step.id,
+            "Preparing contract declaration transaction"
+          );
+          addLog("debug", step.id, "Estimating gas costs for declaration");
+          break;
         case "deploy":
-          addLog("debug", step.id, "Creating contract deployment transaction")
+          addLog("debug", step.id, "Creating contract deployment transaction");
           if (selectedContract?.constructorArgs.length) {
-            addLog("debug", step.id, `Constructor args: ${selectedContract.constructorArgs.join(", ")}`)
+            addLog(
+              "debug",
+              step.id,
+              `Constructor args: ${selectedContract.constructorArgs.join(", ")}`
+            );
           }
-          break
+          break;
         case "verify":
-          addLog("debug", step.id, "Verifying deployment on blockchain")
-          addLog("debug", step.id, "Indexing contract for explorer")
-          break
+          addLog("debug", step.id, "Verifying deployment on blockchain");
+          addLog("debug", step.id, "Indexing contract for explorer");
+          break;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, delays[index] || 1000))
+      await new Promise((resolve) =>
+        setTimeout(resolve, delays[index] || 1000)
+      );
 
       // Simulate specific error scenarios with detailed error information
       if (Math.random() < 0.15) {
@@ -337,11 +431,15 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
             step: "account",
             type: "account" as const,
             message: "Insufficient account balance",
-            details: "Account does not have enough STRK tokens to pay for transaction fees",
+            details:
+              "Account does not have enough STRK tokens to pay for transaction fees",
             technicalDetails: `Account balance: 0.001 STRK\nRequired: 0.005 STRK\nNetwork: ${network}`,
             suggestedFix: `Add STRK tokens to your account using the ${network === "sepolia" ? "Sepolia faucet" : "bridge from Ethereum"}`,
             relatedLinks: [
-              { title: "Starknet Sepolia Faucet", url: "https://faucet.goerli.starknet.io/" },
+              {
+                title: "Starknet Sepolia Faucet",
+                url: "https://faucet.goerli.starknet.io/",
+              },
               {
                 title: "How to Fund Your Account",
                 url: "https://docs.starknet.io/documentation/getting_started/account_setup/",
@@ -353,67 +451,102 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
             step: "compile",
             type: "compilation" as const,
             message: "Contract compilation failed",
-            details: "Cairo compiler encountered syntax errors in the contract code",
+            details:
+              "Cairo compiler encountered syntax errors in the contract code",
             technicalDetails: `Error: Identifier 'storage' not found in scope\nFile: ${selectedContract?.path}\nLine: 15, Column: 8`,
             stackTrace: `cairo-compile error:\n  --> ${selectedContract?.path}:15:8\n   |\n15 |     storage: Storage,\n   |     ^^^^^^^ not found in this scope`,
-            suggestedFix: "Check your contract syntax and ensure all imports are correct",
+            suggestedFix:
+              "Check your contract syntax and ensure all imports are correct",
             relatedLinks: [
-              { title: "Cairo Language Reference", url: "https://docs.cairo-lang.org/" },
-              { title: "Common Cairo Errors", url: "https://docs.starknet.io/documentation/develop/cairo_cheatsheet/" },
+              {
+                title: "Cairo Language Reference",
+                url: "https://docs.cairo-lang.org/",
+              },
+              {
+                title: "Common Cairo Errors",
+                url: "https://docs.starknet.io/documentation/develop/cairo_cheatsheet/",
+              },
             ],
-            context: { contractName: selectedContract?.name, contractPath: selectedContract?.path },
+            context: {
+              contractName: selectedContract?.name,
+              contractPath: selectedContract?.path,
+            },
           },
           {
             step: "declare",
             type: "network" as const,
             message: "Network connection timeout",
-            details: "Failed to connect to Starknet RPC endpoint after multiple attempts",
+            details:
+              "Failed to connect to Starknet RPC endpoint after multiple attempts",
             technicalDetails: `RPC Endpoint: https://${network}.starknet.io/rpc\nTimeout: 30s\nAttempts: 3\nLast Error: ECONNRESET`,
             suggestedFix:
               "Check your internet connection and try again. The network might be experiencing high traffic.",
             relatedLinks: [
               { title: "Starknet Status", url: "https://status.starknet.io/" },
-              { title: "Alternative RPC Endpoints", url: "https://docs.starknet.io/documentation/tools/api_services/" },
+              {
+                title: "Alternative RPC Endpoints",
+                url: "https://docs.starknet.io/documentation/tools/api_services/",
+              },
             ],
-            context: { network, endpoint: `https://${network}.starknet.io/rpc` },
+            context: {
+              network,
+              endpoint: `https://${network}.starknet.io/rpc`,
+            },
           },
           {
             step: "deploy",
             type: "contract" as const,
             message: "Contract deployment reverted",
-            details: "The contract constructor execution failed during deployment",
+            details:
+              "The contract constructor execution failed during deployment",
             technicalDetails: `Revert reason: "Ownable: caller is not the owner"\nGas used: 45,231 / 50,000\nTransaction hash: 0x1234...abcd`,
-            suggestedFix: "Check your constructor logic and ensure all required parameters are provided correctly",
+            suggestedFix:
+              "Check your constructor logic and ensure all required parameters are provided correctly",
             relatedLinks: [
               {
                 title: "Debugging Contract Failures",
                 url: "https://docs.starknet.io/documentation/develop/debugging/",
               },
             ],
-            context: { constructorArgs: selectedContract?.constructorArgs, gasUsed: 45231 },
+            context: {
+              constructorArgs: selectedContract?.constructorArgs,
+              gasUsed: 45231,
+            },
           },
-        ]
+        ];
 
-        const randomError = errorScenarios[Math.floor(Math.random() * errorScenarios.length)]
+        const randomError =
+          errorScenarios[Math.floor(Math.random() * errorScenarios.length)];
         if (randomError.step === step.id) {
-          addError(randomError.step, randomError.type, randomError.message, randomError.details, {
-            technicalDetails: randomError.technicalDetails,
-            stackTrace: randomError.stackTrace,
-            suggestedFix: randomError.suggestedFix,
-            relatedLinks: randomError.relatedLinks,
-            context: randomError.context,
-            severity: randomError.type === "compilation" ? "critical" : "high",
-          })
-          throw new Error(randomError.message)
+          addError(
+            randomError.step,
+            randomError.type,
+            randomError.message,
+            randomError.details,
+            {
+              technicalDetails: randomError.technicalDetails,
+              stackTrace: randomError.stackTrace,
+              suggestedFix: randomError.suggestedFix,
+              relatedLinks: randomError.relatedLinks,
+              context: randomError.context,
+              severity:
+                randomError.type === "compilation" ? "critical" : "high",
+            }
+          );
+          throw new Error(randomError.message);
         }
       }
 
-      addLog("info", step.id, `${step.title} completed successfully`)
+      addLog("info", step.id, `${step.title} completed successfully`);
     } catch (error) {
-      addLog("error", step.id, `${step.title} failed: ${error instanceof Error ? error.message : "Unknown error"}`)
-      throw error
+      addLog(
+        "error",
+        step.id,
+        `${step.title} failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+      throw error;
     }
-  }
+  };
 
   const getSuccessMessage = (stepId: string): string => {
     const messages = {
@@ -423,42 +556,46 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
       declare: "Contract class declared successfully",
       deploy: "Contract instance deployed",
       verify: "Deployment verified and indexed",
-    }
-    return messages[stepId as keyof typeof messages] || "Step completed"
-  }
+    };
+    return messages[stepId as keyof typeof messages] || "Step completed";
+  };
 
   const shouldAutoRetry = (stepId: string, error: any): boolean => {
     // Auto-retry for network-related errors
-    const retryableSteps = ["account", "declare", "deploy"]
-    return retryableSteps.includes(stepId)
-  }
+    const retryableSteps = ["account", "declare", "deploy"];
+    console.log(error, "error");
+    return retryableSteps.includes(stepId);
+  };
 
-  const handleAutoRetry = async (stepIndex: number, steps: DeploymentStep[]) => {
-    const step = steps[stepIndex]
-    const maxRetries = 3
+  const handleAutoRetry = async (
+    stepIndex: number,
+    steps: DeploymentStep[]
+  ) => {
+    const step = steps[stepIndex];
+    const maxRetries = 3;
 
     for (let retry = 1; retry <= maxRetries; retry++) {
-      await new Promise((resolve) => setTimeout(resolve, 2000 * retry)) // Exponential backoff
+      await new Promise((resolve) => setTimeout(resolve, 2000 * retry)); // Exponential backoff
 
-      const updatedSteps = [...steps]
+      const updatedSteps = [...steps];
       updatedSteps[stepIndex] = {
         ...step,
         status: "loading",
         details: `Retrying... (${retry}/${maxRetries})`,
         autoRetryCount: retry,
-      }
-      setDeploymentSteps(updatedSteps)
+      };
+      setDeploymentSteps(updatedSteps);
 
       try {
-        await executeStep(step, stepIndex)
+        await executeStep(step, stepIndex);
 
         updatedSteps[stepIndex] = {
           ...step,
           status: "success",
           details: `${getSuccessMessage(step.id)} (succeeded after ${retry} retries)`,
-        }
-        setDeploymentSteps(updatedSteps)
-        return // Success, continue with next step
+        };
+        setDeploymentSteps(updatedSteps);
+        return; // Success, continue with next step
       } catch (error) {
         if (retry === maxRetries) {
           // Final retry failed
@@ -467,31 +604,36 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
             status: "error",
             details: `Failed after ${maxRetries} retries: ${error instanceof Error ? error.message : "Unknown error"}`,
             canRetry: true,
-          }
-          setDeploymentSteps(updatedSteps)
-          throw error
+          };
+          setDeploymentSteps(updatedSteps);
+          throw error;
         }
       }
     }
-  }
+  };
 
   const handleManualRetry = async (stepIndex: number) => {
-    const steps = [...deploymentSteps]
-    const step = steps[stepIndex]
+    const steps = [...deploymentSteps];
+    const step = steps[stepIndex];
 
-    steps[stepIndex] = { ...step, status: "loading", details: "Retrying..." }
-    setDeploymentSteps(steps)
+    steps[stepIndex] = { ...step, status: "loading", details: "Retrying..." };
+    setDeploymentSteps(steps);
 
     try {
-      await executeStep(step, stepIndex)
-      steps[stepIndex] = { ...step, status: "success", details: getSuccessMessage(step.id) }
-      setDeploymentSteps(steps)
+      await executeStep(step, stepIndex);
+      steps[stepIndex] = {
+        ...step,
+        status: "success",
+        details: getSuccessMessage(step.id),
+      };
+      setDeploymentSteps(steps);
 
       // Continue with remaining steps if this was the failing step
       if (stepIndex === currentStepIndex) {
-        setCurrentStep("deploy")
-        const remainingSteps = steps.slice(stepIndex + 1)
-        await executeDeploymentSteps(steps)
+        setCurrentStep("deploy");
+        const remainingSteps = steps.slice(stepIndex + 1);
+        console.log(remainingSteps);
+        await executeDeploymentSteps(steps);
       }
     } catch (error) {
       steps[stepIndex] = {
@@ -499,47 +641,49 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
         status: "error",
         details: error instanceof Error ? error.message : "Retry failed",
         canRetry: true,
-      }
-      setDeploymentSteps(steps)
+      };
+      setDeploymentSteps(steps);
     }
-  }
+  };
 
   const resetModal = () => {
-    setCurrentStep("detect")
-    setDetectedContracts([])
-    setSelectedContract(null)
-    setDeploymentSteps([])
-    setCurrentStepIndex(0)
-    setDeploymentProgress(0)
-    setDeploymentResult(null)
-    setErrorMessage("")
-    setDeploymentErrors([])
-    setDeploymentLogs([])
-  }
+    setCurrentStep("detect");
+    setDetectedContracts([]);
+    setSelectedContract(null);
+    setDeploymentSteps([]);
+    setCurrentStepIndex(0);
+    setDeploymentProgress(0);
+    setDeploymentResult(null);
+    setErrorMessage("");
+    setDeploymentErrors([]);
+    setDeploymentLogs([]);
+  };
 
   const handleClose = () => {
-    resetModal()
-    onClose()
-  }
+    resetModal();
+    onClose();
+  };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
+    navigator.clipboard.writeText(text);
+  };
 
   const getStepIcon = (status: DeploymentStep["status"]) => {
     switch (status) {
       case "loading":
-        return <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        return (
+          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        );
       case "success":
-        return <CheckCircle className="w-4 h-4 text-green-500" />
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case "error":
-        return <AlertCircle className="w-4 h-4 text-red-500" />
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
       case "warning":
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />
+        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
       default:
-        return <div className="w-4 h-4 border-2 border-muted rounded-full" />
+        return <div className="w-4 h-4 border-2 border-muted rounded-full" />;
     }
-  }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -560,8 +704,12 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
             <div className="text-center space-y-4">
               <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               <div>
-                <h3 className="text-lg font-semibold">Analyzing Your Project</h3>
-                <p className="text-muted-foreground">Detecting contracts and dependencies...</p>
+                <h3 className="text-lg font-semibold">
+                  Analyzing Your Project
+                </h3>
+                <p className="text-muted-foreground">
+                  Detecting contracts and dependencies...
+                </p>
               </div>
             </div>
           )}
@@ -578,7 +726,8 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                       Detected Contracts
                     </CardTitle>
                     <CardDescription>
-                      {detectedContracts.length} deployable contract{detectedContracts.length !== 1 ? "s" : ""} found
+                      {detectedContracts.length} deployable contract
+                      {detectedContracts.length !== 1 ? "s" : ""} found
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -589,7 +738,7 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                           "p-4 border rounded-lg cursor-pointer transition-colors",
                           selectedContract?.name === contract.name
                             ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50",
+                            : "border-border hover:border-primary/50"
                         )}
                         onClick={() => setSelectedContract(contract)}
                       >
@@ -603,18 +752,26 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground">{contract.path}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {contract.path}
+                            </p>
                             {contract.dependencies.length > 0 && (
                               <div className="flex gap-1">
                                 {contract.dependencies.map((dep) => (
-                                  <Badge key={dep} variant="secondary" className="text-xs">
+                                  <Badge
+                                    key={dep}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
                                     {dep}
                                   </Badge>
                                 ))}
                               </div>
                             )}
                           </div>
-                          {selectedContract?.name === contract.name && <CheckCircle className="w-5 h-5 text-primary" />}
+                          {selectedContract?.name === contract.name && (
+                            <CheckCircle className="w-5 h-5 text-primary" />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -626,13 +783,20 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                   <Card>
                     <CardHeader>
                       <CardTitle>Deployment Configuration</CardTitle>
-                      <CardDescription>Smart defaults with manual override options</CardDescription>
+                      <CardDescription>
+                        Smart defaults with manual override options
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Network</Label>
-                          <Select value={network} onValueChange={(value: "sepolia" | "mainnet") => setNetwork(value)}>
+                          <Select
+                            value={network}
+                            onValueChange={(value: "sepolia" | "mainnet") =>
+                              setNetwork(value)
+                            }
+                          >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
@@ -657,7 +821,9 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                           <Label>Account Method</Label>
                           <Select
                             value={accountMethod}
-                            onValueChange={(value: "auto" | "manual") => setAccountMethod(value)}
+                            onValueChange={(value: "auto" | "manual") =>
+                              setAccountMethod(value)
+                            }
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -687,7 +853,9 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                             type="password"
                             placeholder="0x..."
                             value={manualPrivateKey}
-                            onChange={(e) => setManualPrivateKey(e.target.value)}
+                            onChange={(e) =>
+                              setManualPrivateKey(e.target.value)
+                            }
                           />
                         </div>
                       )}
@@ -696,8 +864,8 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                         <Alert>
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription>
-                            This contract has a constructor. Default values will be used, or you can specify them during
-                            deployment.
+                            This contract has a constructor. Default values will
+                            be used, or you can specify them during deployment.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -712,7 +880,10 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                   </Button>
                   <Button
                     onClick={startSmartDeployment}
-                    disabled={!selectedContract || (accountMethod === "manual" && !manualPrivateKey)}
+                    disabled={
+                      !selectedContract ||
+                      (accountMethod === "manual" && !manualPrivateKey)
+                    }
                     className="gap-2"
                   >
                     <Zap className="w-4 h-4" />
@@ -727,8 +898,12 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
           {currentStep === "deploy" && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
-                <h3 className="text-lg font-semibold">Deploying {selectedContract?.name}</h3>
-                <p className="text-muted-foreground">AI-powered deployment in progress...</p>
+                <h3 className="text-lg font-semibold">
+                  Deploying {selectedContract?.name}
+                </h3>
+                <p className="text-muted-foreground">
+                  AI-powered deployment in progress...
+                </p>
                 <Progress value={deploymentProgress} className="w-full" />
               </div>
 
@@ -738,10 +913,13 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                     key={step.id}
                     className={cn(
                       "flex items-start gap-3 p-4 rounded-lg border transition-colors",
-                      index === currentStepIndex && step.status === "loading" && "border-primary bg-primary/5",
+                      index === currentStepIndex &&
+                        step.status === "loading" &&
+                        "border-primary bg-primary/5",
                       step.status === "success" &&
                         "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950",
-                      step.status === "error" && "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950",
+                      step.status === "error" &&
+                        "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
                     )}
                   >
                     <div className="mt-0.5">{getStepIcon(step.status)}</div>
@@ -760,13 +938,17 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                           </Button>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{step.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {step.description}
+                      </p>
                       {step.details && (
                         <p
                           className={cn(
                             "text-xs mt-1",
-                            step.status === "success" && "text-green-600 dark:text-green-400",
-                            step.status === "error" && "text-red-600 dark:text-red-400",
+                            step.status === "success" &&
+                              "text-green-600 dark:text-green-400",
+                            step.status === "error" &&
+                              "text-red-600 dark:text-red-400"
                           )}
                         >
                           {step.details}
@@ -774,7 +956,9 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                       )}
                       {step.txHash && (
                         <div className="flex items-center gap-2 mt-2">
-                          <code className="text-xs bg-muted px-2 py-1 rounded">{step.txHash.slice(0, 20)}...</code>
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {step.txHash.slice(0, 20)}...
+                          </code>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -798,9 +982,12 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
               <div className="text-center space-y-4">
                 <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
                 <div>
-                  <h3 className="text-xl font-semibold">Deployment Successful! 🎉</h3>
+                  <h3 className="text-xl font-semibold">
+                    Deployment Successful! 🎉
+                  </h3>
                   <p className="text-muted-foreground">
-                    {deploymentResult.contractName} deployed to {deploymentResult.network}
+                    {deploymentResult.contractName} deployed to{" "}
+                    {deploymentResult.network}
                   </p>
                 </div>
               </div>
@@ -814,11 +1001,17 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                     <div className="space-y-2">
                       <Label>Contract Address</Label>
                       <div className="flex items-center gap-2">
-                        <Input value={deploymentResult.contractAddress} readOnly className="font-mono text-sm" />
+                        <Input
+                          value={deploymentResult.contractAddress}
+                          readOnly
+                          className="font-mono text-sm"
+                        />
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => copyToClipboard(deploymentResult.contractAddress)}
+                          onClick={() =>
+                            copyToClipboard(deploymentResult.contractAddress)
+                          }
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -828,11 +1021,17 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                     <div className="space-y-2">
                       <Label>Transaction Hash</Label>
                       <div className="flex items-center gap-2">
-                        <Input value={deploymentResult.transactionHash} readOnly className="font-mono text-sm" />
+                        <Input
+                          value={deploymentResult.transactionHash}
+                          readOnly
+                          className="font-mono text-sm"
+                        />
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => copyToClipboard(deploymentResult.transactionHash)}
+                          onClick={() =>
+                            copyToClipboard(deploymentResult.transactionHash)
+                          }
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -842,8 +1041,18 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                     <div className="space-y-2">
                       <Label>Class Hash</Label>
                       <div className="flex items-center gap-2">
-                        <Input value={deploymentResult.classHash} readOnly className="font-mono text-sm" />
-                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(deploymentResult.classHash)}>
+                        <Input
+                          value={deploymentResult.classHash}
+                          readOnly
+                          className="font-mono text-sm"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            copyToClipboard(deploymentResult.classHash)
+                          }
+                        >
                           <Copy className="w-4 h-4" />
                         </Button>
                       </div>
@@ -853,7 +1062,11 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                   <Separator />
 
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="gap-2 bg-transparent" asChild>
+                    <Button
+                      variant="outline"
+                      className="gap-2 bg-transparent"
+                      asChild
+                    >
                       <a
                         href={`https://${network === "sepolia" ? "sepolia." : ""}starkscan.co/contract/${deploymentResult.contractAddress}`}
                         target="_blank"
@@ -863,7 +1076,11 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                         View Contract
                       </a>
                     </Button>
-                    <Button variant="outline" className="gap-2 bg-transparent" asChild>
+                    <Button
+                      variant="outline"
+                      className="gap-2 bg-transparent"
+                      asChild
+                    >
                       <a
                         href={`https://${network === "sepolia" ? "sepolia." : ""}starkscan.co/tx/${deploymentResult.transactionHash}`}
                         target="_blank"
@@ -905,11 +1122,13 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                 errors={deploymentErrors}
                 logs={deploymentLogs}
                 onRetry={(errorId) => {
-                  const error = deploymentErrors.find((e) => e.id === errorId)
+                  const error = deploymentErrors.find((e) => e.id === errorId);
                   if (error) {
-                    const stepIndex = deploymentSteps.findIndex((s) => s.id === error.step)
+                    const stepIndex = deploymentSteps.findIndex(
+                      (s) => s.id === error.step
+                    );
                     if (stepIndex !== -1) {
-                      handleManualRetry(stepIndex)
+                      handleManualRetry(stepIndex);
                     }
                   }
                 }}
@@ -923,16 +1142,18 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
                       contractName: selectedContract?.name,
                       accountMethod,
                     },
-                  }
-                  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement("a")
-                  a.href = url
-                  a.download = `deployment-debug-${Date.now()}.json`
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  URL.revokeObjectURL(url)
+                  };
+                  const blob = new Blob([JSON.stringify(report, null, 2)], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `deployment-debug-${Date.now()}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
                 }}
               />
 
@@ -950,5 +1171,5 @@ export function SmartDeployModal({ isOpen, onClose, files, onDeploymentComplete 
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
