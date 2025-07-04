@@ -374,7 +374,7 @@ export function CairoIDE() {
         {/* Editor Header */}
         <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold">Cairo IDE</h1>
+            {/* <h1 className="text-lg font-semibold">Cairo IDE</h1> */}
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => setIsProjectImportModalOpen(true)}
